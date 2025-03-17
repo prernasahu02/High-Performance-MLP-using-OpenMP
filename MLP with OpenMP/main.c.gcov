@@ -1,0 +1,243 @@
+        -:    0:Source:src/main.c
+        -:    0:Graph:main.gcno
+        -:    0:Data:main.gcda
+        -:    0:Runs:1
+        -:    1:/*
+        -:    2:Author: Manohar Mukku
+        -:    3:Date: 18.07.2018
+        -:    4:Desc: Multilayer Perceptron implementation in C
+        -:    5:GitHub: https://github.com/manoharmukku/multilayer-perceptron-in-c
+        -:    6:*/
+        -:    7:
+        -:    8:#include "mlp_trainer.h"
+        -:    9:#include "mlp_classifier.h"
+        -:   10:#include "read_csv.h"
+        -:   11:
+        1:   12:int main(int argc, char** argv) {
+        -:   13:    /*
+        -:   14:    argv[0]: Executable file name Ex: a.out
+        -:   15:    argv[1]: Number of hidden layers Ex: 3
+        -:   16:    argv[2]: Size of each hidden layer separated by comma Ex: 4,5,5
+        -:   17:    argv[3]: Hidden activation functions (identity - 1, sigmoid - 2, tanh - 3, relu - 4, softmax - 5)
+        -:   18:    argv[4]: Alpha (L2 Regularization parameter value)
+        -:   19:    argv[5]: Maximum number of iterations
+        -:   20:    argv[6]: Number of units in output layer
+        -:   21:    argv[7]: Output activation function (identity - 1, sigmoid - 2, tanh - 3, relu - 4, softmax - 5)
+        -:   22:    argv[8]: Name of the csv file containing the train dataset
+        -:   23:    argv[9]: Number of rows or samples in the train dataset
+        -:   24:    argv[10]: Number of features including the output variable in the train dataset
+        -:   25:    argv[11]: Name of the csv file containing the test dataset
+        -:   26:    argv[12]: Number of rows or samples in the test dataset
+        -:   27:    argv[13]: Number of features including the output variable in the test dataset
+        -:   28:    */
+        -:   29:
+        -:   30:    // Sanity check of command line arguments
+        1:   31:    if (argc != 14) {
+        -:   32:        // Print help for execution syntax
+    #####:   33:        printf("\nExecution syntax:\n");
+    #####:   34:        printf("-----------------\n");
+    #####:   35:        printf("Argument 0: Executable file name Ex: ./MLP \n");
+    #####:   36:        printf("Argument 1: Number of hidden layers Ex: 3 \n");
+    #####:   37:        printf("Argument 2: Number of units in each hidden layer from left to right separated by comma (no spaces in-between) Ex: 4,5,5 \n");
+    #####:   38:        printf("Argument 3: Activation function of each hidden layer from left to right separated by comma (no spaces in-between) Ex: softmax,relu,tanh \n");
+    #####:   39:        printf("Argument 4: Number of units in output layer (Specify 1 for binary classification and k for k-class multi-class classification) Ex: 1 \n");
+    #####:   40:        printf("Argument 5: Output activation function Ex: sigmoid \n");
+    #####:   41:        printf("Argument 6: Learning rate parameter Ex: 0.01 \n");
+    #####:   42:        printf("Argument 7: Maximum number of iterations to run during training Ex: 10000 \n");
+    #####:   43:        printf("Argument 8: Path of the csv file containing the train dataset Ex: data/data_train.csv \n");
+    #####:   44:        printf("Argument 9: Number of rows in the train dataset (Number of samples) Ex: 1096 \n");
+    #####:   45:        printf("Argument 10: Number of columns in the train dataset (Number of input features + 1 (output variable)). The output variable should always be in the last column Ex: 5 \n");
+    #####:   46:        printf("Argument 11: Path of the csv file containing the test dataset Ex: data/data_test.csv \n");
+    #####:   47:        printf("Argument 12: Number of rows in the test dataset (Number of samples) Ex: 275 \n");
+    #####:   48:        printf("Argument 13: Number of columns in the test dataset (Number of input features + 1 (output variable)). The output variable should always be in the last column Ex: 5 \n\n");
+    #####:   49:        printf("Example:\n--------\n~$ ./MLP 3 4,5,5 softmax,relu,tanh 1 sigmoid 0.01 10000 data/data_train.csv 1096 5 data/data_test.csv 275 5\n\n");
+        -:   50:
+    #####:   51:        exit(0);
+        -:   52:    }
+        -:   53:
+        -:   54:    // Create memory for training parameters struct
+        1:   55:    parameters* param = (parameters*)malloc(sizeof(parameters));
+        -:   56:
+        -:   57:    // Number of hidden layers
+        1:   58:    param->n_hidden = atoi(argv[1]);
+        -:   59:    // Sanity check of number of hidden layers
+        1:   60:    if (param->n_hidden < 0) {
+    #####:   61:        printf("Error: Number of hidden layers should be >= 0\n");
+    #####:   62:        exit(0);
+        -:   63:    }
+        -:   64:
+        -:   65:    // Size of each hidden layer
+        1:   66:    param->hidden_layers_size = (int*)malloc(param->n_hidden * sizeof(int));
+        -:   67:    int i;
+        -:   68:    char* tok;
+       1*:   69:    for (i = 0, tok = strtok(argv[2], ","); i < param->n_hidden; i++) {
+    #####:   70:        param->hidden_layers_size[i] = atoi(tok);
+        -:   71:        // Sanity check of size of hidden layer
+    #####:   72:        if (param->hidden_layers_size[i] <= 0) {
+    #####:   73:            printf("Error: Hidden layer sizes should be positive\n");
+    #####:   74:            exit(0);
+        -:   75:        }
+    #####:   76:        tok = strtok(NULL, ",");
+        -:   77:    }
+        -:   78:
+        -:   79:    // Hidden activation functions - Activation functions for each hidden layer
+        1:   80:    param->hidden_activation_functions = (int*)malloc(param->n_hidden * sizeof(int));
+       1*:   81:    for (i = 0, tok = strtok(argv[3], ","); i < param->n_hidden; i++) {
+    #####:   82:        if (strcmp(tok, "identity") == 0) {
+    #####:   83:            param->hidden_activation_functions[i] = 1;
+        -:   84:        }
+    #####:   85:        else if (strcmp(tok, "sigmoid") == 0) {
+    #####:   86:            param->hidden_activation_functions[i] = 2;
+        -:   87:        }
+    #####:   88:        else if (strcmp(tok, "tanh") == 0) {
+    #####:   89:            param->hidden_activation_functions[i] = 3;
+        -:   90:        }
+    #####:   91:        else if (strcmp(tok, "relu") == 0) {
+    #####:   92:            param->hidden_activation_functions[i] = 4;
+        -:   93:        }
+    #####:   94:        else if (strcmp(tok, "softmax") == 0) {
+    #####:   95:            param->hidden_activation_functions[i] = 5;
+        -:   96:        }
+        -:   97:        else {
+    #####:   98:            printf("Error: Invalid value for hidden activation function\n");
+    #####:   99:            printf("Input either identity or sigmoid or tanh or relu or softmax for hidden activation function\n");
+    #####:  100:            exit(0);
+        -:  101:        }
+        -:  102:
+    #####:  103:        tok = strtok(NULL, ",");
+        -:  104:    }
+        -:  105:
+        -:  106:    // Output layer size
+        1:  107:    param->output_layer_size = atoi(argv[4]);
+        1:  108:    if (param->output_layer_size <= 0) {
+    #####:  109:        printf("Output layer size should be positive\n");
+    #####:  110:        exit(0);
+        -:  111:    }
+        -:  112:
+        -:  113:    // Output activation function
+        1:  114:    if (strcmp(argv[5], "identity") == 0) {
+    #####:  115:        param->output_activation_function = 1;
+        -:  116:    }
+        1:  117:    else if (strcmp(argv[5], "sigmoid") == 0) {
+    #####:  118:        param->output_activation_function = 2;
+        -:  119:    }
+        1:  120:    else if (strcmp(argv[5], "tanh") == 0) {
+    #####:  121:        param->output_activation_function = 3;
+        -:  122:    }
+        1:  123:    else if (strcmp(argv[5], "relu") == 0) {
+    #####:  124:        param->output_activation_function = 4;
+        -:  125:    }
+        1:  126:    else if (strcmp(argv[5], "softmax") == 0) {
+        1:  127:        param->output_activation_function = 5;
+        -:  128:    }
+        -:  129:    else {
+    #####:  130:        printf("Error: Invalid value for output activation function\n");
+    #####:  131:        printf("Input either identity or sigmoid or tanh or relu or softmax for output activation function\n");
+    #####:  132:        exit(0);
+        -:  133:    }
+        -:  134:
+        -:  135:    // L2 Regularization parameter
+        1:  136:    param->learning_rate = atoi(argv[6]);
+        -:  137:
+        -:  138:    // Max. number of iterations
+        1:  139:    param->n_iterations_max = atoi(argv[7]);
+        1:  140:    if (param->n_iterations_max <= 0) {
+    #####:  141:        printf("Max. number of iterations value should be positive\n");
+    #####:  142:        exit(0);
+        -:  143:    }
+        -:  144:
+        -:  145:    // Momentum
+        -:  146:    //param->momentum = atoi(argv[6]);
+        -:  147:
+        -:  148:    // Get the parameters of the train dataset
+        1:  149:    char* train_filename = argv[8];
+        1:  150:    param->train_sample_size = atoi(argv[9]);
+        -:  151:    // Feature size = Number of input features + 1 output feature
+        1:  152:    param->feature_size = atoi(argv[10]);
+        -:  153:
+        -:  154:    // Create 2D array memory for the dataset
+        1:  155:    param->data_train = (double**)malloc(param->train_sample_size * sizeof(double*));
+     1097:  156:    for (i = 0; i < param->train_sample_size; i++)
+     1096:  157:        param->data_train[i] = (double*)malloc(param->feature_size * sizeof(double));
+        -:  158:
+        -:  159:    // Read the train dataset from the csv into the 2D array
+        1:  160:    read_csv(train_filename, param->train_sample_size, param->feature_size, param->data_train);
+        -:  161:
+        -:  162:    // Get the parameters of the test dataset
+        1:  163:    char* test_filename = argv[11];
+        1:  164:    param->test_sample_size = atoi(argv[12]);
+        -:  165:    // Feature size = Number of input features + 1 output feature
+        1:  166:    param->feature_size = atoi(argv[13]);
+        -:  167:
+        -:  168:    // Create 2D array memory for the dataset
+        1:  169:    param->data_test = (double**)malloc(param->test_sample_size * sizeof(double*));
+      276:  170:    for (i = 0; i < param->test_sample_size; i++)
+      275:  171:        param->data_test[i] = (double*)malloc(param->feature_size * sizeof(double));
+        -:  172:
+        -:  173:    // Read the test dataset from the csv into the 2D array
+        1:  174:    read_csv(test_filename, param->test_sample_size, param->feature_size, param->data_test);
+        -:  175:
+        -:  176:    // Total number of layers
+        1:  177:    int n_layers = param->n_hidden + 2;
+        -:  178:
+        -:  179:    // Save the sizes of layers in an array
+        1:  180:    int* layer_sizes = (int*)calloc(n_layers, sizeof(int));
+        -:  181:
+        1:  182:    layer_sizes[0] = param->feature_size - 1;
+        1:  183:    layer_sizes[n_layers-1] = param->output_layer_size;
+        -:  184:
+       1*:  185:    for (i = 1; i < n_layers-1 ; i++)
+    #####:  186:        layer_sizes[i] = param->hidden_layers_size[i-1];
+        -:  187:
+        -:  188:    // Create memory for the weight matrices between layers
+        -:  189:    // weight is a pointer to the array of 2D arrays between the layers
+        1:  190:    param->weight = (double***)calloc(n_layers - 1, sizeof(double**));
+        -:  191:
+        -:  192:    // Each 2D array between two layers i and i+1 is of size ((layer_size[i]+1) x layer_size[i+1])
+        -:  193:    // The weight matrix includes weights for the bias terms too
+        2:  194:    for (i = 0; i < n_layers-1; i++)
+        1:  195:        param->weight[i] = (double**)calloc(layer_sizes[i]+1, sizeof(double*));
+        -:  196:
+        -:  197:    int j;
+        2:  198:    for (i = 0; i < n_layers-1; i++)
+        6:  199:        for (j = 0; j < layer_sizes[i]+1; j++)
+        5:  200:            param->weight[i][j] = (double*)calloc(layer_sizes[i+1], sizeof(double));
+        -:  201:
+        -:  202:    // Train the neural network on the train data
+        1:  203:    printf("Training:\n");
+        1:  204:    printf("---------\n");
+        1:  205:    mlp_trainer(param, layer_sizes);
+        1:  206:    printf("\nDone.\n\n");
+        -:  207:
+        -:  208:    // Classify the test data using the trained parameter weights
+        1:  209:    printf("Classifying:\n");
+        1:  210:    printf("------------\n");
+        1:  211:    mlp_classifier(param, layer_sizes);
+        -:  212:    //printf("\nDone.\nOutput file generated\n");
+        -:  213:
+        -:  214:    // Free the memory allocated in Heap
+        2:  215:    for (i = 0; i < n_layers-1; i++)
+        6:  216:        for (j = 0; j < layer_sizes[i]+1; j++)
+        5:  217:            free(param->weight[i][j]);
+        -:  218:
+        2:  219:    for (i = 0; i < n_layers-1; i++)
+        1:  220:        free(param->weight[i]);
+        -:  221:
+        1:  222:    free(param->weight);
+        -:  223:
+        1:  224:    free(layer_sizes);
+        -:  225:
+     1097:  226:    for (i = 0; i < param->train_sample_size; i++)
+     1096:  227:        free(param->data_train[i]);
+        -:  228:
+      276:  229:    for (i = 0; i < param->test_sample_size; i++)
+      275:  230:        free(param->data_test[i]);
+        -:  231:
+        1:  232:    free(param->data_train);
+        1:  233:    free(param->data_test);
+        1:  234:    free(param->hidden_activation_functions);
+        1:  235:    free(param->hidden_layers_size);
+        1:  236:    free(param);
+        -:  237:
+        1:  238:    return 0;
+        -:  239:}
