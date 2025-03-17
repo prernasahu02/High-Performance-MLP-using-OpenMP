@@ -43,9 +43,6 @@ A detailed performance evaluation was conducted by running the parellelized perc
 
 *     Parallelization with thread count 32 shows the best performance.
 
-## Future Enhancements
-* GPU Acceleration – Implement CUDA-based MLP for further speed improvements.
-
 ## Source and Attribution
 This project is based on the Multilayer Perceptron (MLP) implementation from manoharmukku/multilayer-perceptron-in-c, which is licensed under the **MIT License**.
 
@@ -54,3 +51,8 @@ This project is based on the Multilayer Perceptron (MLP) implementation from man
 * **Parallelization:** Implemented OpenMP for multi-threaded execution, significantly reducing computation time.
 * **High-Performance Computing (HPC):** Optimized the MLP algorithm through OpenMP to efficiently utilize modern CPU architectures.
 The original **MIT License** is included in this repository as required.
+
+
+## Future Enhancements
+* GPU Acceleration – Implement CUDA-based MLP for further speed improvements.
+
